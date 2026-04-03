@@ -16,7 +16,7 @@
 
 <script>
 const clientId = "50873344cff546bc883d29ee31fdf3cd";
-const redirectUri = "https://5vtbfjksdg-ops.github.io/vibra";
+const redirectUri = "https://5vtbfjksdg-ops.github.io/vibra/"; // 🔥 viktig med /
 const scopes = "user-top-read";
 
 // 🔐 PKCE helpers
@@ -82,10 +82,16 @@ async function getTracks(token) {
   const res = await fetch("https://api.spotify.com/v1/me/top/tracks", {
     headers: { Authorization: "Bearer " + token }
   });
+
   const data = await res.json();
 
   const div = document.getElementById("tracks");
   div.innerHTML = "";
+
+  if (!data.items) {
+    div.innerHTML = "No data (check login)";
+    return;
+  }
 
   data.items.slice(0,5).forEach(t => {
     div.innerHTML += `<p>${t.name} - ${t.artists[0].name}</p>`;

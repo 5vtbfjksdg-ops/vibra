@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Vibra</title>
+</head>
+<body style="background:black;color:white;text-align:center;font-family:sans-serif;">
+
+  <h1>Vibra 🎧</h1>
+  <p>Your vibe, your sound</p>
+
+  <button onclick="login()" style="padding:15px 30px;font-size:16px;">
+    Login with Spotify
+  </button>
+
+  <div id="tracks"></div>
+
+<script>
+const clientId = "50873344cff546bc883d29ee31fdf3cd";
+const redirectUri = window.location.href;
+const scopes = "user-top-read";
+
+function login() {
+  const url = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${scopes}`;
+  window.location = url;
+}
+
+function getToken() {
+  const hash = window.location.hash;
+  if (!hash) return null;
+  return hash.split("&")[0].split("=")[1];
+}
+
+async function getTracks(token) {
+  const res = await fetch("https://api.spotify.com/v1/me/top/tracks", {
+    headers: { Authorization: "Bearer " + token }
+  });
+  const data = await res.json();
+
+  const div = document.getElementById("tracks");
+  data.items.slice(0,5).forEach(t => {
+    div.innerHTML += `<p>${t.name} - ${t.artists[0].name}</p>`;
+  });
+}
+
+const token = getToken();
+if (token) getTracks(token);
+</script>
+
+</body>
+</html>

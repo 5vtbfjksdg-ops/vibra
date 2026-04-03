@@ -19,17 +19,65 @@ const clientId = "50873344cff546bc883d29ee31fdf3cd";
 const redirectUri = "https://5vtbfjksdg-ops.github.io/vibra";
 const scopes = "user-top-read";
 
-function login() {
-  const url = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectUri}&scope=${scopes}`;
+// 🔐 PKCE helpers
+function generateRandomString(length) {
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  return Array.from(crypto.getRandomValues(new Uint8Array(length)))
+    .map(x => possible[x % possible.length])
+    .join('');
+}
+
+async function sha256(plain) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plain);
+  return window.crypto.subtle.digest('SHA-256', data);
+}
+
+function base64encode(input) {
+  return btoa(String.fromCharCode(...new Uint8Array(input)))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+// 🚀 LOGIN (PKCE)
+async function login() {
+  const codeVerifier = generateRandomString(64);
+  localStorage.setItem("code_verifier", codeVerifier);
+
+  const hashed = await sha256(codeVerifier);
+  const codeChallenge = base64encode(hashed);
+
+  const url = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&code_challenge_method=S256&code_challenge=${codeChallenge}`;
+
   window.location = url;
 }
 
-function getToken() {
-  const hash = window.location.hash;
-  if (!hash) return null;
-  return hash.split("&")[0].split("=")[1];
+// 🔄 Hent token
+async function getToken(code) {
+  const verifier = localStorage.getItem("code_verifier");
+
+  const body = new URLSearchParams({
+    client_id: clientId,
+    grant_type: "authorization_code",
+    code: code,
+    redirect_uri: redirectUri,
+    code_verifier: verifier
+  });
+
+  const response = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: body
+  });
+
+  const data = await response.json();
+  return data.access_token;
 }
 
+// 🎧 Hent tracks
 async function getTracks(token) {
   const res = await fetch("https://api.spotify.com/v1/me/top/tracks", {
     headers: { Authorization: "Bearer " + token }
@@ -37,13 +85,22 @@ async function getTracks(token) {
   const data = await res.json();
 
   const div = document.getElementById("tracks");
+  div.innerHTML = "";
+
   data.items.slice(0,5).forEach(t => {
     div.innerHTML += `<p>${t.name} - ${t.artists[0].name}</p>`;
   });
 }
 
-const token = getToken();
-if (token) getTracks(token);
+// 🔁 Når du kommer tilbake fra Spotify
+const params = new URLSearchParams(window.location.search);
+const code = params.get("code");
+
+if (code) {
+  getToken(code).then(token => {
+    getTracks(token);
+  });
+}
 </script>
 
 </body>
